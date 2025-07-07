@@ -3,26 +3,15 @@ NODE_ENV = "production"
 NEXT_TELEMETRY_DISABLED = "1"
 HOSTNAME = "0.0.0.0"
 PORT = "3000"
-NEXT_PUBLIC_APP_URL = "${COOLIFY_DEPLOYMENT_URL}"  # Coolify auto-injects this
 
 [phases.setup]
 nixPkgs = ["nodejs_20"]
-nixLibs = ["libc6-compat"]  # Required for Alpine compatibility
-aptPkgs = ["git"]  # Needed if using private submodules
 
 [phases.install]
-cacheDirectories = ["/root/.npm"]  # Cache npm packages
-cmds = [
-  "npm ci --omit=dev --prefer-offline --no-audit",
-  "npm cache clean --force"  # Reduce image size
-]
+cmds = ["npm ci --legacy-peer-deps --prefer-offline --no-audit"]
 
 [phases.build]
-cacheDirectories = [
-  ".next/cache",
-  "node_modules/.cache"
-]
 cmds = ["npm run build"]
 
 [start]
-cmd = "node .next/standalone/server.js"
+cmd = "node .next/standalone/server.js" 
