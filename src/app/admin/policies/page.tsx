@@ -152,19 +152,11 @@ export default function AdminPoliciesPage() {
     .filter((policy) => {
       const matchesSearch =
         policy.policyNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        policy.userId.fullName
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        policy.userId.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        policy.vehicleInfo.make
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        policy.vehicleInfo.model
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        (policy.createdBy?.fullName || "")
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase());
+        (policy.userId && policy.userId.fullName && policy.userId.fullName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (policy.userId && policy.userId.email && policy.userId.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        policy.vehicleInfo.make.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        policy.vehicleInfo.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (policy.createdBy?.fullName || "").toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesFilter =
         filterStatus === "all" ||
@@ -187,7 +179,12 @@ export default function AdminPoliciesPage() {
         case "policy-desc":
           return b.policyNumber.localeCompare(a.policyNumber);
         case "customer":
-          return a.userId.fullName.localeCompare(b.userId.fullName);
+          if (a.userId && b.userId) {
+            return a.userId.fullName.localeCompare(b.userId.fullName);
+          }
+          if (a.userId) return -1;
+          if (b.userId) return 1;
+          return 0;
         case "price-high":
           return b.price - a.price;
         case "price-low":
@@ -407,7 +404,7 @@ export default function AdminPoliciesPage() {
                           {policy.policyNumber}
                         </CardTitle>
                         <p className="text-sm text-muted-foreground">
-                          {policy.userId.fullName}
+                          {policy.userId ? policy.userId.fullName : "Unknown User"}
                         </p>
                       </div>
                       <Badge className={getStatusColor(policy.status)}>
