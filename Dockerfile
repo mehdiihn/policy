@@ -1,41 +1,49 @@
-# Use the exact same Node version as your local dev environment
-FROM node:18-alpine AS base
+# === 1. Install dependencies ===
+FROM node:20-alpine AS deps
+
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# ---- Dependencies Stage ----
-FROM base AS deps
-RUN apk add --no-cache libc6-compat git
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
 
-# ---- Builder Stage ----
-FROM base AS builder
+RUN if [ -f package-lock.json ]; then \
+      npm ci --ignore-scripts; \
+    else \
+      echo "Lockfile not found." && exit 1; \
+    fi
+
+# === 2. Build app ===
+FROM node:20-alpine AS builder
+
+WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1 \
-    NODE_ENV=production
 
-# Coolify-specific build args
-ARG COOLIFY_BUILD_ID
-ARG COOLIFY_DEPLOYMENT_URL
-ENV NEXT_PUBLIC_APP_URL=${COOLIFY_DEPLOYMENT_URL}
-
+ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
-# ---- Production Stage ----
-FROM base AS runner
-ENV NODE_ENV=production \
-    PORT=3000 \
-    HOST=0.0.0.0
+# === 3. Production image ===
+FROM node:20-alpine AS runner
 
-# Create non-root user (required by Coolify)
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S -u 1001 -G nodejs nextjs
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED 1
 
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+
+# Make .next and set permissions
+RUN mkdir .next && chown nextjs:nodejs .next
+
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
+
 EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+
 CMD ["node", "server.js"]
